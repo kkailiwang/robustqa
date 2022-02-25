@@ -19,8 +19,8 @@ from nltk.tokenize import word_tokenize
 
 nlp = spacy.load('en_core_web_sm')
 # nltk.download()
-# nltk.download('wordnet')
-# nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('punkt')
 wordnet.synsets("subscribe")
 
 
