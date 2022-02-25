@@ -21,6 +21,7 @@ nlp = spacy.load('en_core_web_sm')
 # nltk.download()
 nltk.download('wordnet')
 nltk.download('punkt')
+nltk.download('omw-1.4')
 wordnet.synsets("subscribe")
 
 
