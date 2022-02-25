@@ -229,27 +229,43 @@ def read_squad(path):
     return data_dict_collapsed
 
 def data_augmentation(data_dict_collapsed): 
-    data_dict_aug = {'question': [], 'context': [], 'id': []}
+    print([(k, type(v)) for k, v in data_dict_collapsed.items()])
+    # i = 0
+    # for k, v in data_dict_collapsed.items():
+    #     if i >= 1: 
+    #         return
+    #     print(k, v)
+    #     i += 1
+    data_dict_aug = {'question': [], 'context': [], 'id': [], 'answer': []}
+    for i in range(data_dict_collapsed.id):
+        q = data_dict_collapsed.question[i]
+        a = data_dict_collapsed.answer[i]
+        idx = data_dict_collapsed.id[i]
+        context = data_dict_collapsed.context[i]
 
-    if data_dict_collapsed['answer']:
-        data_dict_aug['answer'] = []
+        # each answer is a {answer_start: [###, ### ], text: }
 
-    for qid in id_map: 
-        ex_ids = id_map[qid]
-        ## INPUT THE CODE FOR VERB TAGGING AND SYNONYM REPLACEMENT HERE ##
-        new_context = data_dict_collapsed['context'][ex_ids[0]]
-        print(new_context)
 
-        data_dict_aug['context'].append(new_context)
-        data_dict_aug['question'].append(data_dict_collapsed['question'][ex_ids[0]])
-        data_dict_aug['id'].append(qid)
 
-        if data_dict_collapsed['answer']:
-            all_answers = [data_dict_collapsed['answer'][idx] for idx in ex_ids]
-            data_dict_aug['answer'].append({'answer_start': [answer['answer_start'] for answer in all_answers],
-                                           'text': [answer['text'] for answer in all_answers]})
+#     if data_dict_collapsed['answer']:
+#         data_dict_aug['answer'] = []
 
-    return data_dict_aug.update(data_dict_collapsed)
+#     for qid in id_map: 
+#         ex_ids = id_map[qid]
+#         ## INPUT THE CODE FOR VERB TAGGING AND SYNONYM REPLACEMENT HERE ##
+#         new_context = data_dict_collapsed['context'][ex_ids[0]]
+#         print(new_context)
+
+#         data_dict_aug['context'].append(new_context)
+#         data_dict_aug['question'].append(data_dict_collapsed['question'][ex_ids[0]])
+#         data_dict_aug['id'].append(qid)
+
+#         if data_dict_collapsed['answer']:
+#             all_answers = [data_dict_collapsed['answer'][idx] for idx in ex_ids]
+#             data_dict_aug['answer'].append({'answer_start': [answer['answer_start'] for answer in all_answers],
+#                                            'text': [answer['text'] for answer in all_answers]})
+
+#     return data_dict_aug.update(data_dict_collapsed)
     
 def add_token_positions(encodings, answers, tokenizer):
     start_positions = []

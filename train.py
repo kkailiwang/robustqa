@@ -259,6 +259,25 @@ def main():
     model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 
+    if args.do_augment:
+        augment_dir = 'datasets/augment'
+        augment_prefix = 'augmented'
+        if not os.path.exists(augment_dir):
+            os.makedirs(augment_dir)
+        args.augment_dir = util.get_save_dir(augment_dir, augment_prefix)
+        log = util.get_logger(args.save_dir, 'log_train')
+        log.info(f'Args: {json.dumps(vars(args), indent=4, sort_keys=True)}')
+        log.info("Preparing augment Data...")
+
+        datasets = args.train_datasets.split(',')
+        dataset_dict = None
+        dataset_name=''
+        for dataset in datasets:
+            dataset_name += f'_{dataset}'
+            dataset_dict_curr = util.read_squad(f'{args.train_dir}/{dataset}')
+            augmented_dict = util.data_augmentation(dataset_dict_curr)
+            dataset_dict = util.merge(dataset_dict, augmented_dict)
+
     if args.do_train:
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
