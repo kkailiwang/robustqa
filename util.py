@@ -11,6 +11,18 @@ import torch
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import Dataset
+import spacy
+import nltk
+from nltk.corpus import wordnet
+from collections import OrderedDict
+from nltk.tokenize import word_tokenize
+
+nlp = spacy.load('en_core_web_sm')
+# nltk.download()
+# nltk.download('wordnet')
+# nltk.download('punkt')
+wordnet.synsets("subscribe")
+
 
 def set_seed(seed):
     random.seed(seed)
@@ -186,10 +198,92 @@ class QADataset(Dataset):
     def __len__(self):
         return len(self.encodings['input_ids'])
 
+def find_synonyms(word):
+  synonyms = []
+  for synset in wordnet.synsets(word):
+    for syn in synset.lemma_names():
+      synonyms.append(syn)
+
+  # using this to drop duplicates while maintaining word order (closest synonyms comes first)
+  synonyms_without_duplicates = list(OrderedDict.fromkeys(synonyms))
+  return synonyms_without_duplicates
+
 
 ### Function that assembles the training/testing datasets ###
 ### Make sure that the augmented data that we are adding looks the same as data_dict_collapsed ###  
-def read_squad(path):
+
+# structure of squad_dict:
+# squad_dict = {
+#     data: [
+#         {
+#             paragraphs: [
+#                 { 
+#                     context: '', 
+#                     qas: [
+#                         {
+#                             question: '', 
+#                             answers: ['answer', ],
+#                             id: 13,
+#                         }
+#                     ]
+#                 }
+#             ]
+#         }
+#     ]
+# }
+
+def add_to_dict(context, qas, data_dict): 
+    for qa in qas:
+        question = qa['question']
+        if len(qa['answers']) == 0:
+            data_dict['question'].append(question)
+            data_dict['context'].append(context)
+            data_dict['id'].append(qa['id'])
+        else:
+            for answer in  qa['answers']:
+                data_dict['question'].append(question)
+                data_dict['context'].append(context)
+                data_dict['id'].append(qa['id'])
+                data_dict['answer'].append(answer)
+
+def matches_pos(accepted, pos):
+    for valid in accepted: 
+        if pos == valid:
+            return True
+    return False
+
+# return best synonym. return None if there is none. 
+def best_synonym(word, synonyms):
+    if len(synonyms) == 0: 
+        return None
+    if synonyms[0] != word:
+        return synonyms[0]
+    if len(synonyms) == 1:
+        return None
+    return synonyms[1]
+
+def augment_text(context, pos): # part of speeches, as an array
+    doc = nlp(context)
+    new_context = context
+    replace_map = dict()
+    for i in range(len(doc)):
+        # print(doc[i].pos_)
+        if matches_pos(pos, doc[i].pos_):
+            word = doc[i].text
+            synonyms = find_synonyms(word)
+            # print(word, synonyms)
+            best = best_synonym(word, synonyms)
+            if best:
+                replace_map[word] = best
+    
+    # replace all 
+    for og, new in replace_map.items():
+        new_context = new_context.replace(og, new) 
+    return new_context
+
+
+def read_squad(path, augment=False):
+
     path = Path(path)
     with open(path, 'rb') as f:
         squad_dict = json.load(f)
@@ -197,18 +291,19 @@ def read_squad(path):
     for group in squad_dict['data']:
         for passage in group['paragraphs']:
             context = passage['context']
-            for qa in passage['qas']:
-                question = qa['question']
-                if len(qa['answers']) == 0:
-                    data_dict['question'].append(question)
-                    data_dict['context'].append(context)
-                    data_dict['id'].append(qa['id'])
-                else:
-                    for answer in  qa['answers']:
-                        data_dict['question'].append(question)
-                        data_dict['context'].append(context)
-                        data_dict['id'].append(qa['id'])
-                        data_dict['answer'].append(answer)
+            add_to_dict(context, passage['qas'], data_dict)
+
+            if augment:
+                # synonymized 
+                syn_context = augment_text(context, ['VERB', 'ADJ'])
+                # preview = context[:200]
+                # preview_new = syn_context[:200]
+                # if preview != preview_new:
+                #     print(preview)
+                #     print(preview_new)
+                add_to_dict(syn_context, passage['qas'], data_dict)
+
+
     id_map = ddict(list)
     for idx, qid in enumerate(data_dict['id']):
         id_map[qid].append(idx)
@@ -228,44 +323,6 @@ def read_squad(path):
                                                   'text': [answer['text'] for answer in all_answers]})    
     return data_dict_collapsed
 
-def data_augmentation(data_dict_collapsed): 
-    print([(k, type(v)) for k, v in data_dict_collapsed.items()])
-    # i = 0
-    # for k, v in data_dict_collapsed.items():
-    #     if i >= 1: 
-    #         return
-    #     print(k, v)
-    #     i += 1
-    data_dict_aug = {'question': [], 'context': [], 'id': [], 'answer': []}
-    for i in range(data_dict_collapsed.id):
-        q = data_dict_collapsed.question[i]
-        a = data_dict_collapsed.answer[i]
-        idx = data_dict_collapsed.id[i]
-        context = data_dict_collapsed.context[i]
-
-        # each answer is a {answer_start: [###, ### ], text: }
-
-
-
-#     if data_dict_collapsed['answer']:
-#         data_dict_aug['answer'] = []
-
-#     for qid in id_map: 
-#         ex_ids = id_map[qid]
-#         ## INPUT THE CODE FOR VERB TAGGING AND SYNONYM REPLACEMENT HERE ##
-#         new_context = data_dict_collapsed['context'][ex_ids[0]]
-#         print(new_context)
-
-#         data_dict_aug['context'].append(new_context)
-#         data_dict_aug['question'].append(data_dict_collapsed['question'][ex_ids[0]])
-#         data_dict_aug['id'].append(qid)
-
-#         if data_dict_collapsed['answer']:
-#             all_answers = [data_dict_collapsed['answer'][idx] for idx in ex_ids]
-#             data_dict_aug['answer'].append({'answer_start': [answer['answer_start'] for answer in all_answers],
-#                                            'text': [answer['text'] for answer in all_answers]})
-
-#     return data_dict_aug.update(data_dict_collapsed)
     
 def add_token_positions(encodings, answers, tokenizer):
     start_positions = []

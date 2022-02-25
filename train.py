@@ -240,13 +240,13 @@ class Trainer():
                     global_idx += 1
         return best_scores
 
-def get_dataset(args, datasets, data_dir, tokenizer, split_name):
+def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment=False):
     datasets = datasets.split(',')
     dataset_dict = None
     dataset_name=''
     for dataset in datasets:
         dataset_name += f'_{dataset}'
-        dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}')
+        dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}', augment)
         dataset_dict = util.merge(dataset_dict, dataset_dict_curr)
     data_encodings = read_and_process(args, tokenizer, dataset_dict, data_dir, dataset_name, split_name)
     return util.QADataset(data_encodings, train=(split_name=='train')), dataset_dict
@@ -259,25 +259,6 @@ def main():
     model = DistilBertForQuestionAnswering.from_pretrained("distilbert-base-uncased")
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 
-    if args.do_augment:
-        augment_dir = 'datasets/augment'
-        augment_prefix = 'augmented'
-        if not os.path.exists(augment_dir):
-            os.makedirs(augment_dir)
-        args.augment_dir = util.get_save_dir(augment_dir, augment_prefix)
-        log = util.get_logger(args.save_dir, 'log_train')
-        log.info(f'Args: {json.dumps(vars(args), indent=4, sort_keys=True)}')
-        log.info("Preparing augment Data...")
-
-        datasets = args.train_datasets.split(',')
-        dataset_dict = None
-        dataset_name=''
-        for dataset in datasets:
-            dataset_name += f'_{dataset}'
-            dataset_dict_curr = util.read_squad(f'{args.train_dir}/{dataset}')
-            augmented_dict = util.data_augmentation(dataset_dict_curr)
-            dataset_dict = util.merge(dataset_dict, augmented_dict)
-
     if args.do_train:
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
@@ -287,7 +268,7 @@ def main():
         log.info("Preparing Training Data...")
         args.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         trainer = Trainer(args, log)
-        train_dataset, _ = get_dataset(args, args.train_datasets, args.train_dir, tokenizer, 'train')
+        train_dataset, _ = get_dataset(args, args.train_datasets, args.train_dir, tokenizer, 'train', args.augment)
         log.info("Preparing Validation Data...")
         val_dataset, val_dict = get_dataset(args, args.train_datasets, args.val_dir, tokenizer, 'val')
         train_loader = DataLoader(train_dataset,
