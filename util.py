@@ -73,6 +73,7 @@ def visualize(tbx, pred_dict, gold_dict, step, split, num_visuals):
                      global_step=step)
 
 
+# makes augment-02 or whatever. base_dir is args.save_dir 
 def get_save_dir(base_dir, name, id_max=100):
     for uid in range(1, id_max):
         save_dir = os.path.join(base_dir, f'{name}-{uid:02d}')
@@ -233,6 +234,19 @@ def find_synonyms(word):
 #     ]
 # }
 
+# idea: change question and answer too by replacing the same words. and then, do indexof. 
+# another idea: do it sequentially. 
+# https://stackoverflow.com/questions/57360747/pos-tagging-a-single-word-in-spacy
+"""
+answer format:
+"answers": [
+    {
+        "answer_start": 1308,
+        "text": "Reuters"
+    }
+]
+"""
+
 def add_to_dict(context, qas, data_dict): 
     for qa in qas:
         question = qa['question']
@@ -241,7 +255,7 @@ def add_to_dict(context, qas, data_dict):
             data_dict['context'].append(context)
             data_dict['id'].append(qa['id'])
         else:
-            for answer in  qa['answers']:
+            for answer in qa['answers']:
                 data_dict['question'].append(question)
                 data_dict['context'].append(context)
                 data_dict['id'].append(qa['id'])
@@ -282,6 +296,23 @@ def augment_text(context, pos): # part of speeches, as an array
         new_context = new_context.replace(og, new) 
     return new_context
 
+def find_replacements(context, pos): # part of speeches, as an array
+    doc = nlp(context)
+    new_context = context
+    replace_map = dict()
+    for i in range(len(doc)):
+        # print(doc[i].pos_)
+        if matches_pos(pos, doc[i].pos_):
+            word = doc[i].text
+            synonyms = find_synonyms(word)
+            # print(word, synonyms)
+            best = best_synonym(word, synonyms)
+            if best:
+                replace_map[word] = best
+    
+    # replace all 
+    return replace_map
+
 
 def read_squad(path, augment=False):
 
@@ -302,6 +333,8 @@ def read_squad(path, augment=False):
                 # if preview != preview_new:
                 #     print(preview)
                 #     print(preview_new)
+
+
                 add_to_dict(syn_context, passage['qas'], data_dict)
 
 

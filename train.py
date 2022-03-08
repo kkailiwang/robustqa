@@ -141,6 +141,8 @@ class Trainer():
         self.device = args.device
         self.eval_every = args.eval_every
         self.path = os.path.join(args.save_dir, 'checkpoint')
+        # allows you to start from a pretrained model that you've saved already 
+        self.pretrained = args.pretrained_dir
         self.num_visuals = args.num_visuals
         self.save_dir = args.save_dir
         self.log = log
@@ -150,6 +152,10 @@ class Trainer():
 
     def save(self, model):
         model.save_pretrained(self.path)
+
+    def from_pretrained(self, model):
+        self.log.info('loading from pretrained dir ' + self.pretrained)
+        model.from_pretrained(self.pretrained)
 
     def evaluate(self, model, data_loader, data_dict, return_preds=False, split='validation'):
         device = self.device
@@ -199,6 +205,10 @@ class Trainer():
         global_idx = 0
         best_scores = {'F1': -1.0, 'EM': -1.0}
         tbx = SummaryWriter(self.save_dir)
+        print('epochs', self.num_epochs)
+
+        if self.pretrained:
+            self.from_pretrained(model)
 
         for epoch_num in range(self.num_epochs):
             self.log.info(f'Epoch: {epoch_num}')
@@ -244,6 +254,7 @@ def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment=False):
     datasets = datasets.split(',')
     dataset_dict = None
     dataset_name=''
+    print(datasets)
     for dataset in datasets:
         dataset_name += f'_{dataset}'
         dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}', augment)
@@ -262,6 +273,8 @@ def main():
     if args.do_train:
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
+        if args.pretrained_dir: # bc it could be None 
+            args.pretrained_dir = os.path.join(args.save_dir, args.pretrained_dir, 'checkpoint') # becomes 'save/xxxxx-0x/checkpoint'
         args.save_dir = util.get_save_dir(args.save_dir, args.run_name)
         log = util.get_logger(args.save_dir, 'log_train')
         log.info(f'Args: {json.dumps(vars(args), indent=4, sort_keys=True)}')
