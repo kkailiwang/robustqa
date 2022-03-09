@@ -31,15 +31,18 @@ def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
 def load_pickle(path):
     with open(path, 'rb') as f:
         obj = pickle.load(f)
     return obj
 
+
 def save_pickle(obj, path):
     with open(path, 'wb') as f:
         pickle.dump(obj, f)
     return
+
 
 def visualize(tbx, pred_dict, gold_dict, step, split, num_visuals):
     """Visualize text examples to TensorBoard.
@@ -55,8 +58,9 @@ def visualize(tbx, pred_dict, gold_dict, step, split, num_visuals):
         return
     if num_visuals > len(pred_dict):
         num_visuals = len(pred_dict)
-    id2index = {curr_id : idx for idx, curr_id in enumerate(gold_dict['id'])}
-    visual_ids = np.random.choice(list(pred_dict), size=num_visuals, replace=False)
+    id2index = {curr_id: idx for idx, curr_id in enumerate(gold_dict['id'])}
+    visual_ids = np.random.choice(
+        list(pred_dict), size=num_visuals, replace=False)
     for i, id_ in enumerate(visual_ids):
         pred = pred_dict[id_] or 'N/A'
         idx_gold_dict = id2index[id_]
@@ -73,7 +77,7 @@ def visualize(tbx, pred_dict, gold_dict, step, split, num_visuals):
                      global_step=step)
 
 
-# makes augment-02 or whatever. base_dir is args.save_dir 
+# makes augment-02 or whatever. base_dir is args.save_dir
 def get_save_dir(base_dir, name, id_max=100):
     for uid in range(1, id_max):
         save_dir = os.path.join(base_dir, f'{name}-{uid:02d}')
@@ -87,15 +91,16 @@ def get_save_dir(base_dir, name, id_max=100):
 
 def filter_encodings(encodings):
     filter_idx = [idx for idx, val in enumerate(encodings['end_positions'])
-                 if not val]
+                  if not val]
     filter_idx = set(filter_idx)
-    encodings_filtered = {key : [] for key in encodings}
+    encodings_filtered = {key: [] for key in encodings}
     sz = len(encodings['input_ids'])
     for idx in range(sz):
         if idx not in filter_idx:
             for key in encodings:
                 encodings_filtered[key].append(encodings[key][idx])
     return encodings_filtered
+
 
 def merge(encodings, new_encoding):
     if not encodings:
@@ -104,6 +109,7 @@ def merge(encodings, new_encoding):
         for key in new_encoding:
             encodings[key] += new_encoding[key]
         return encodings
+
 
 def get_logger(log_dir, name):
     """Get a `logging.Logger` instance that prints to the console
@@ -122,6 +128,7 @@ def get_logger(log_dir, name):
         See Also:
             > https://stackoverflow.com/questions/38543506
         """
+
         def emit(self, record):
             try:
                 msg = self.format(record)
@@ -159,12 +166,14 @@ def get_logger(log_dir, name):
 
     return logger
 
+
 class AverageMeter:
     """Keep track of average values over time.
 
     Adapted from:
         > https://github.com/pytorch/examples/blob/master/imagenet/main.py
     """
+
     def __init__(self):
         self.avg = 0
         self.sum = 0
@@ -186,6 +195,7 @@ class AverageMeter:
         self.sum += val * num_samples
         self.avg = self.sum / self.count
 
+
 class QADataset(Dataset):
     def __init__(self, encodings, train=True):
         self.encodings = encodings
@@ -195,35 +205,36 @@ class QADataset(Dataset):
         assert(all(key in self.encodings for key in self.keys))
 
     def __getitem__(self, idx):
-        return {key : torch.tensor(self.encodings[key][idx]) for key in self.keys}
+        return {key: torch.tensor(self.encodings[key][idx]) for key in self.keys}
 
     def __len__(self):
         return len(self.encodings['input_ids'])
 
-def find_synonyms(word):
-  synonyms = []
-  for synset in wordnet.synsets(word):
-    for syn in synset.lemma_names():
-      synonyms.append(syn)
 
-  # using this to drop duplicates while maintaining word order (closest synonyms comes first)
-  synonyms_without_duplicates = list(OrderedDict.fromkeys(synonyms))
-  return synonyms_without_duplicates
+def find_synonyms(word):
+    synonyms = []
+    for synset in wordnet.synsets(word):
+        for syn in synset.lemma_names():
+            synonyms.append(syn)
+
+    # using this to drop duplicates while maintaining word order (closest synonyms comes first)
+    synonyms_without_duplicates = list(OrderedDict.fromkeys(synonyms))
+    return synonyms_without_duplicates
 
 
 ### Function that assembles the training/testing datasets ###
-### Make sure that the augmented data that we are adding looks the same as data_dict_collapsed ###  
+### Make sure that the augmented data that we are adding looks the same as data_dict_collapsed ###
 
 # structure of squad_dict:
 # squad_dict = {
 #     data: [
 #         {
 #             paragraphs: [
-#                 { 
-#                     context: '', 
+#                 {
+#                     context: '',
 #                     qas: [
 #                         {
-#                             question: '', 
+#                             question: '',
 #                             answers: ['answer', ],
 #                             id: 13,
 #                         }
@@ -234,8 +245,8 @@ def find_synonyms(word):
 #     ]
 # }
 
-# idea: change question and answer too by replacing the same words. and then, do indexof. 
-# another idea: do it sequentially. 
+# idea: change question and answer too by replacing the same words. and then, do indexof.
+# another idea: do it sequentially.
 # https://stackoverflow.com/questions/57360747/pos-tagging-a-single-word-in-spacy
 """
 answer format:
@@ -247,7 +258,8 @@ answer format:
 ]
 """
 
-def add_to_dict(context, qas, data_dict): 
+
+def add_to_dict(context, qas, data_dict):
     for qa in qas:
         question = qa['question']
         if len(qa['answers']) == 0:
@@ -261,15 +273,18 @@ def add_to_dict(context, qas, data_dict):
                 data_dict['id'].append(qa['id'])
                 data_dict['answer'].append(answer)
 
+
 def matches_pos(accepted, pos):
-    for valid in accepted: 
+    for valid in accepted:
         if pos == valid:
             return True
     return False
 
-# return best synonym. return None if there is none. 
+# return best synonym. return None if there is none.
+
+
 def best_synonym(word, synonyms):
-    if len(synonyms) == 0: 
+    if len(synonyms) == 0:
         return None
     if synonyms[0] != word:
         return synonyms[0]
@@ -277,7 +292,8 @@ def best_synonym(word, synonyms):
         return None
     return synonyms[1]
 
-def augment_text(context, pos): # part of speeches, as an array
+
+def augment_text(context, pos):  # part of speeches, as an array
     doc = nlp(context)
     new_context = context
     replace_map = dict()
@@ -290,13 +306,14 @@ def augment_text(context, pos): # part of speeches, as an array
             best = best_synonym(word, synonyms)
             if best:
                 replace_map[word] = best
-    
-    # replace all 
+
+    # replace all
     for og, new in replace_map.items():
-        new_context = new_context.replace(og, new) 
+        new_context = new_context.replace(og, new)
     return new_context
 
-def find_replacements(context, pos): # part of speeches, as an array
+
+def find_replacements(context, pos):  # part of speeches, as an array
     doc = nlp(context)
     new_context = context
     replace_map = dict()
@@ -308,10 +325,34 @@ def find_replacements(context, pos): # part of speeches, as an array
             # print(word, synonyms)
             best = best_synonym(word, synonyms)
             if best:
-                replace_map[word] = best
-    
-    # replace all 
+                replace_map[word] = best.lower()  # make sure it's lowercase
+
+    # replace all
     return replace_map
+
+# idea: go through spacy doc and find all things you want to replace. add to a dict.
+# then go through context.split() and if a word should be replaced, calculate the difference between the two replacements.
+# example:
+# i hate ham ->
+# i despise ham
+# diffs: [0: 0, 2: 0: 7: 3] (because ' ham' is now at index 7+3=10, not 7)
+# have a global diff variable that gets +=
+#
+
+def get_new_answer(answer, replace_map, diffs_of_word_starts, new_context):
+    answer_start = answer['answer_start']
+    text = answer['text'].lower()
+
+    # ignore the ones we can't get accurate word indexign for 
+    if text not in replace_map or answer_start not in diffs_of_word_starts:
+        return {'answer_start': answer_start, 'text': text}
+    # print('in answer: ', text, replace_map[text], answer_start)
+    # must replace!
+    text = replace_map[text]
+    answer_start += diffs_of_word_starts[answer_start]
+    # print(new_context[answer_start:answer_start+20])
+
+    return {'answer_start': answer_start, 'text': text}
 
 
 def read_squad(path, augment=False):
@@ -323,20 +364,68 @@ def read_squad(path, augment=False):
     for group in squad_dict['data']:
         for passage in group['paragraphs']:
             context = passage['context']
-            add_to_dict(context, passage['qas'], data_dict)
 
-            if augment:
-                # synonymized 
-                syn_context = augment_text(context, ['VERB', 'ADJ'])
-                # preview = context[:200]
-                # preview_new = syn_context[:200]
-                # if preview != preview_new:
-                #     print(preview)
-                #     print(preview_new)
+            # normal
+            if not augment:
+                add_to_dict(context, passage['qas'], data_dict)
+            else:
+                # augment the text!
+                replace_map = find_replacements(context, ['VERB', 'ADJ'])
 
+                diffs_of_word_starts = dict()
+                global_diff = 0
+                running_index = 0
+                # singles out words but keeps everything in between
+                splitted_text = re.split('(\W)', context)
+                new_context = ''
+                for splitted in splitted_text:
+                    splitted = splitted.lower()
+                    if splitted in replace_map:
+                        new_word = replace_map[splitted]
 
-                add_to_dict(syn_context, passage['qas'], data_dict)
+                        # replace!
+                        new_context += replace_map[splitted]
+                        diff = len(new_word) - len(splitted)
+                        diffs_of_word_starts[running_index] = global_diff
+                        global_diff += diff
+                    else:
+                        new_context += splitted
+                    running_index += len(splitted)
+    
+                new_qas = []
+                for qa in passage['qas']:
+                    # update the questions
+                    question = qa['question']
+                    answers = qa['answers']
+                    new_question = ''
+                    splitted_question = re.split('(\W)', question)
+                    for splitted in splitted_question:
+                        splitted = splitted.lower()
+                        if splitted in replace_map:
+                            new_question += replace_map[splitted]
+                        else:
+                            new_question += splitted
 
+                    # change answers
+                    new_answers = []
+                    for answer in answers:
+
+                        new_answer = get_new_answer(answer, replace_map, diffs_of_word_starts, new_context)
+                        new_answers.append(new_answer)
+                    new_qas.append({'question': new_question, 'answers': new_answers, 'id': qa['id']})
+
+                add_to_dict(new_context, new_qas, data_dict)
+
+            # if augment:
+            #     # synonymized
+            #     syn_context = augment_text(context, ['VERB', 'ADJ'])
+            #     # preview = context[:200]
+            #     # preview_new = syn_context[:200]
+            #     # if preview != preview_new:
+            #     #     print(preview)
+            #     #     print(preview_new)
+
+            #     add_to_dict(syn_context, passage['qas'], data_dict)
 
     id_map = ddict(list)
     for idx, qid in enumerate(data_dict['id']):
@@ -347,23 +436,26 @@ def read_squad(path, augment=False):
         data_dict_collapsed['answer'] = []
     for qid in id_map:
         ex_ids = id_map[qid]
-        data_dict_collapsed['question'].append(data_dict['question'][ex_ids[0]])
+        data_dict_collapsed['question'].append(
+            data_dict['question'][ex_ids[0]])
         data_dict_collapsed['context'].append(data_dict['context'][ex_ids[0]])
         data_dict_collapsed['id'].append(qid)
-        ### Why does it go through all of this before appending this to the dataset?
+        # Why does it go through all of this before appending this to the dataset?
         if data_dict['answer']:
             all_answers = [data_dict['answer'][idx] for idx in ex_ids]
             data_dict_collapsed['answer'].append({'answer_start': [answer['answer_start'] for answer in all_answers],
-                                                  'text': [answer['text'] for answer in all_answers]})    
+                                                  'text': [answer['text'] for answer in all_answers]})
     return data_dict_collapsed
 
-    
+
 def add_token_positions(encodings, answers, tokenizer):
     start_positions = []
     end_positions = []
     for i in range(len(answers)):
-        start_positions.append(encodings.char_to_token(i, answers[i]['answer_start']))
-        end_positions.append(encodings.char_to_token(i, answers[i]['answer_end']))
+        start_positions.append(encodings.char_to_token(
+            i, answers[i]['answer_start']))
+        end_positions.append(encodings.char_to_token(
+            i, answers[i]['answer_end']))
 
         # if start position is None, the answer passage has been truncated
         if start_positions[-1] is None:
@@ -371,8 +463,10 @@ def add_token_positions(encodings, answers, tokenizer):
 
         # if end position is None, the 'char_to_token' function points to the space before the correct token - > add + 1
         if end_positions[-1] is None:
-            end_positions[-1] = encodings.char_to_token(i, answers[i]['answer_end'] + 1)
-    encodings.update({'start_positions': start_positions, 'end_positions': end_positions})
+            end_positions[-1] = encodings.char_to_token(
+                i, answers[i]['answer_end'] + 1)
+    encodings.update({'start_positions': start_positions,
+                     'end_positions': end_positions})
 
 
 def add_end_idx(answers, contexts):
@@ -386,10 +480,13 @@ def add_end_idx(answers, contexts):
             answer['answer_end'] = end_idx
         elif context[start_idx-1:end_idx-1] == gold_text:
             answer['answer_start'] = start_idx - 1
-            answer['answer_end'] = end_idx - 1     # When the gold label is off by one character
+            # When the gold label is off by one character
+            answer['answer_end'] = end_idx - 1
         elif context[start_idx-2:end_idx-2] == gold_text:
             answer['answer_start'] = start_idx - 2
-            answer['answer_end'] = end_idx - 2     # When the gold label is off by two characters
+            # When the gold label is off by two characters
+            answer['answer_end'] = end_idx - 2
+
 
 def convert_tokens(eval_dict, qa_id, y_start_list, y_end_list):
     """Convert predictions to tokens from the context.
@@ -418,6 +515,7 @@ def convert_tokens(eval_dict, qa_id, y_start_list, y_end_list):
         sub_dict[uuid] = context[start_idx: end_idx]
     return pred_dict, sub_dict
 
+
 def metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
     if not ground_truths:
         return metric_fn(prediction, '')
@@ -430,14 +528,16 @@ def metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
 
 def eval_dicts(gold_dict, pred_dict):
     avna = f1 = em = total = 0
-    id2index = {curr_id : idx for idx, curr_id in enumerate(gold_dict['id'])}
+    id2index = {curr_id: idx for idx, curr_id in enumerate(gold_dict['id'])}
     for curr_id in pred_dict:
         total += 1
         index = id2index[curr_id]
         ground_truths = gold_dict['answer'][index]['text']
         prediction = pred_dict[curr_id]
-        em += metric_max_over_ground_truths(compute_em, prediction, ground_truths)
-        f1 += metric_max_over_ground_truths(compute_f1, prediction, ground_truths)
+        em += metric_max_over_ground_truths(compute_em,
+                                            prediction, ground_truths)
+        f1 += metric_max_over_ground_truths(compute_f1,
+                                            prediction, ground_truths)
 
     eval_dict = {'EM': 100. * em / total,
                  'F1': 100. * f1 / total}
@@ -457,7 +557,7 @@ def postprocess_qa_predictions(examples, features, predictions,
 
     # Let's loop over all the examples!
     for example_index in tqdm(range(len(examples['id']))):
-        example = {key : examples[key][example_index] for key in examples}
+        example = {key: examples[key][example_index] for key in examples}
         # Those are the indices of the features associated to the current example.
         feature_indices = features_per_example[example_index]
         prelim_predictions = []
@@ -482,10 +582,11 @@ def postprocess_qa_predictions(examples, features, predictions,
             if token_is_max_context:
                 token_is_max_context = token_is_max_context[feature_index]
 
-
             # Go through all possibilities for the `n_best_size` greater start and end logits.
-            start_indexes = np.argsort(start_logits)[-1 : -n_best_size - 1 : -1].tolist()
-            end_indexes = np.argsort(end_logits)[-1 : -n_best_size - 1 : -1].tolist()
+            start_indexes = np.argsort(
+                start_logits)[-1: -n_best_size - 1: -1].tolist()
+            end_indexes = np.argsort(
+                end_logits)[-1: -n_best_size - 1: -1].tolist()
             for start_index in start_indexes:
                 for end_index in end_indexes:
                     # Don't consider out-of-scope answers, either because the indices are out of bounds or correspond
@@ -515,18 +616,20 @@ def postprocess_qa_predictions(examples, features, predictions,
                         }
                     )
         # Only keep the best `n_best_size` predictions.
-        predictions = sorted(prelim_predictions, key=lambda x: x["score"], reverse=True)[:n_best_size]
+        predictions = sorted(prelim_predictions, key=lambda x: x["score"], reverse=True)[
+            :n_best_size]
 
         # Use the offsets to gather the answer text in the original context.
         context = example["context"]
         for pred in predictions:
             offsets = pred['offsets']
-            pred["text"] = context[offsets[0] : offsets[1]]
+            pred["text"] = context[offsets[0]: offsets[1]]
 
         # In the very rare edge case we have not a single non-null prediction, we create a fake prediction to avoid
         # failure.
         if len(predictions) == 0:
-            predictions.insert(0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0})
+            predictions.insert(
+                0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0})
 
         # Compute the softmax of all scores (we do it with numpy to stay independent from torch/tf in this file, using
         # the LogSumExp trick).
@@ -545,13 +648,13 @@ def postprocess_qa_predictions(examples, features, predictions,
                 break
             i += 1
         if i == len(predictions):
-            import pdb; pdb.set_trace();
+            import pdb
+            pdb.set_trace()
 
         best_non_null_pred = predictions[i]
         all_predictions[example["id"]] = best_non_null_pred["text"]
 
     return all_predictions
-
 
 
 # All methods below this line are from the official SQuAD 2.0 eval script
@@ -575,10 +678,12 @@ def normalize_answer(s):
 
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
+
 def get_tokens(s):
     if not s:
         return []
     return normalize_answer(s).split()
+
 
 def compute_em(a_gold, a_pred):
     return int(normalize_answer(a_gold) == normalize_answer(a_pred))

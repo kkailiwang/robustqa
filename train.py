@@ -198,63 +198,69 @@ class Trainer():
             return preds, results
         return results
 
-    def train(self, model, train_dataloader, eval_dataloader, val_dict):
+    def train(self, model, train_dataloader, eval_dataloader, val_dict, ood_train_dataloader=None):
         device = self.device
         model.to(device)
         optim = AdamW(model.parameters(), lr=self.lr)
         global_idx = 0
         best_scores = {'F1': -1.0, 'EM': -1.0}
         tbx = SummaryWriter(self.save_dir)
-        print('epochs', self.num_epochs)
-
         if self.pretrained:
             self.from_pretrained(model)
 
-        for epoch_num in range(self.num_epochs):
-            self.log.info(f'Epoch: {epoch_num}')
-            with torch.enable_grad(), tqdm(total=len(train_dataloader.dataset)) as progress_bar:
-                for batch in train_dataloader:
-                    optim.zero_grad()
-                    model.train()
-                    input_ids = batch['input_ids'].to(device)
-                    attention_mask = batch['attention_mask'].to(device)
-                    start_positions = batch['start_positions'].to(device)
-                    end_positions = batch['end_positions'].to(device)
-                    outputs = model(input_ids, attention_mask=attention_mask,
-                                    start_positions=start_positions,
-                                    end_positions=end_positions)
-                    loss = outputs[0]
-                    loss.backward()
-                    optim.step()
-                    progress_bar.update(len(input_ids))
-                    progress_bar.set_postfix(epoch=epoch_num, NLL=loss.item())
-                    tbx.add_scalar('train/NLL', loss.item(), global_idx)
-                    if (global_idx % self.eval_every) == 0:
-                        self.log.info(f'Evaluating at step {global_idx}...')
-                        preds, curr_score = self.evaluate(model, eval_dataloader, val_dict, return_preds=True)
-                        results_str = ', '.join(f'{k}: {v:05.2f}' for k, v in curr_score.items())
-                        self.log.info('Visualizing in TensorBoard...')
-                        for k, v in curr_score.items():
-                            tbx.add_scalar(f'val/{k}', v, global_idx)
-                        self.log.info(f'Eval {results_str}')
-                        if self.visualize_predictions:
-                            util.visualize(tbx,
-                                           pred_dict=preds,
-                                           gold_dict=val_dict,
-                                           step=global_idx,
-                                           split='val',
-                                           num_visuals=self.num_visuals)
-                        if curr_score['F1'] >= best_scores['F1']:
-                            best_scores = curr_score
-                            self.save(model)
-                    global_idx += 1
+        def train_for_epochs(training_dataloader, num_epochs):
+            # do only 1 epoch for in, and 3 epochs for oo_train 
+            for epoch_num in range(num_epochs):
+                self.log.info(f'Epoch: {epoch_num}')
+                with torch.enable_grad(), tqdm(total=len(training_dataloader.dataset)) as progress_bar:
+                    for batch in training_dataloader:
+                        optim.zero_grad()
+                        model.train()
+                        input_ids = batch['input_ids'].to(device)
+                        attention_mask = batch['attention_mask'].to(device)
+                        start_positions = batch['start_positions'].to(device)
+                        end_positions = batch['end_positions'].to(device)
+                        outputs = model(input_ids, attention_mask=attention_mask,
+                                        start_positions=start_positions,
+                                        end_positions=end_positions)
+                        loss = outputs[0]
+                        loss.backward()
+                        optim.step()
+                        progress_bar.update(len(input_ids))
+                        progress_bar.set_postfix(epoch=epoch_num, NLL=loss.item())
+                        tbx.add_scalar('train/NLL', loss.item(), global_idx)
+                        if (global_idx % self.eval_every) == 0:
+                            self.log.info(f'Evaluating at step {global_idx}...')
+                            preds, curr_score = self.evaluate(model, eval_dataloader, val_dict, return_preds=True)
+                            results_str = ', '.join(f'{k}: {v:05.2f}' for k, v in curr_score.items())
+                            self.log.info('Visualizing in TensorBoard...')
+                            for k, v in curr_score.items():
+                                tbx.add_scalar(f'val/{k}', v, global_idx)
+                            self.log.info(f'Eval {results_str}')
+                            if self.visualize_predictions:
+                                util.visualize(tbx,
+                                            pred_dict=preds,
+                                            gold_dict=val_dict,
+                                            step=global_idx,
+                                            split='val',
+                                            num_visuals=self.num_visuals)
+                            if curr_score['F1'] >= best_scores['F1']:
+                                best_scores = curr_score
+                                self.save(model)
+                        global_idx += 1
+
+        # these are arbitrary
+        self.log.info('training for in domain')
+        train_for_epochs(train_dataloader, 1)
+        self.log.info('training for out of domain')
+        train_for_epochs(ood_train_dataloader, 3)
+
         return best_scores
 
 def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment=False):
     datasets = datasets.split(',')
     dataset_dict = None
     dataset_name=''
-    print(datasets)
     for dataset in datasets:
         dataset_name += f'_{dataset}'
         dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}', augment)
@@ -282,15 +288,21 @@ def main():
         args.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         trainer = Trainer(args, log)
         train_dataset, _ = get_dataset(args, args.train_datasets, args.train_dir, tokenizer, 'train', args.augment)
+        ood_train_dataset, _ = get_dataset(args, args.ood_train_datasets, args.ood_train_dir, tokenizer, 'train', args.augment)
+
         log.info("Preparing Validation Data...")
         val_dataset, val_dict = get_dataset(args, args.train_datasets, args.val_dir, tokenizer, 'val')
         train_loader = DataLoader(train_dataset,
                                 batch_size=args.batch_size,
                                 sampler=RandomSampler(train_dataset))
+        ood_train_loader = DataLoader(ood_train_dataset,
+                                batch_size=args.batch_size,
+                                sampler=RandomSampler(ood_train_dataset))
         val_loader = DataLoader(val_dataset,
                                 batch_size=args.batch_size,
                                 sampler=SequentialSampler(val_dataset))
-        best_scores = trainer.train(model, train_loader, val_loader, val_dict)
+        best_scores = trainer.train(model, train_loader, val_loader, val_dict, ood_train_loader)
+
     if args.do_eval:
         args.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         split_name = 'test' if 'test' in args.eval_dir else 'validation'
