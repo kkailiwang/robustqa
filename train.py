@@ -147,6 +147,7 @@ class Trainer():
         self.save_dir = args.save_dir
         self.log = log
         self.visualize_predictions = args.visualize_predictions
+        self.just_baseline = args.just_baseline
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
@@ -264,7 +265,7 @@ def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment="origin
     dataset_name=''
     for dataset in datasets:
         dataset_name += f'_{dataset}'
-        dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}', augment)
+        dataset_dict_curr = util.read_squad(f'{data_dir}/{dataset}', augment, args.replace.split(','))
         dataset_dict = util.merge(dataset_dict, dataset_dict_curr)
     data_encodings = read_and_process(args, tokenizer, dataset_dict, data_dir, dataset_name, split_name)
     return util.QADataset(data_encodings, train=(split_name=='train')), dataset_dict

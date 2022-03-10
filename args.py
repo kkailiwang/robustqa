@@ -14,6 +14,7 @@ def get_train_test_args():
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--train-datasets', type=str, default='squad,nat_questions,newsqa')
     parser.add_argument('--run-name', type=str, default='multitask_distilbert')
+    parser.add_argument('--replace', type=str, default="VERB,ADJ,NOUN")
     parser.add_argument('--recompute-features', action='store_true')
     parser.add_argument('--train-dir', type=str, default='datasets/indomain_train')
     parser.add_argument('--ood-train-dir', type=str, default='datasets/oodomain_train')
@@ -22,6 +23,7 @@ def get_train_test_args():
     parser.add_argument('--eval-dir', type=str, default='datasets/oodomain_test')
     parser.add_argument('--eval-datasets', type=str, default='race,relation_extraction,duorc')
     parser.add_argument('--do-train', action='store_true')
+    parser.add_argument('--just-baseline', action='store_true')
     parser.add_argument('--augment', action='store_true') # with data augmentation
     parser.add_argument('--do-eval', action='store_true')
     parser.add_argument('--sub-file', type=str, default='')
