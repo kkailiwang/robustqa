@@ -355,7 +355,7 @@ def get_new_answer(answer, replace_map, diffs_of_word_starts, new_context):
     return {'answer_start': answer_start, 'text': text}
 
 
-def read_squad(path, augment=False):
+def read_squad(path, augment="original"):
 
     path = Path(path)
     with open(path, 'rb') as f:
@@ -366,9 +366,9 @@ def read_squad(path, augment=False):
             context = passage['context']
 
             # normal
-            if not augment:
+            if augment == "original" or augment == "both":
                 add_to_dict(context, passage['qas'], data_dict)
-            else:
+            if augment == "augmented" or augment == "both":
                 # augment the text!
                 replace_map = find_replacements(context, ['VERB', 'ADJ'])
 

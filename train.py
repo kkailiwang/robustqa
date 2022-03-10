@@ -258,7 +258,7 @@ class Trainer():
 
         return best_scores
 
-def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment=False):
+def get_dataset(args, datasets, data_dir, tokenizer, split_name, augment="original"):
     datasets = datasets.split(',')
     dataset_dict = None
     dataset_name=''
@@ -288,8 +288,8 @@ def main():
         log.info("Preparing Training Data...")
         args.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         trainer = Trainer(args, log)
-        train_dataset, _ = get_dataset(args, args.train_datasets, args.train_dir, tokenizer, 'train', args.augment)
-        ood_train_dataset, _ = get_dataset(args, args.ood_train_datasets, args.ood_train_dir, tokenizer, 'train', args.augment)
+        train_dataset, _ = get_dataset(args, args.train_datasets, args.train_dir, tokenizer, 'train', "augmented")
+        ood_train_dataset, _ = get_dataset(args, args.ood_train_datasets, args.ood_train_dir, tokenizer, 'train', "both")
 
         log.info("Preparing Validation Data...")
         val_dataset, val_dict = get_dataset(args, args.train_datasets, args.val_dir, tokenizer, 'val')
