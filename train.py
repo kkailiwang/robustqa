@@ -208,7 +208,7 @@ class Trainer():
         if self.pretrained:
             self.from_pretrained(model)
 
-        def train_for_epochs(training_dataloader, num_epochs, global_idx):
+        def train_for_epochs(training_dataloader, num_epochs, global_idx, best_scores):
             # do only 1 epoch for in, and 3 epochs for oo_train 
             for epoch_num in range(num_epochs):
                 self.log.info(f'Epoch: {epoch_num}')
@@ -252,9 +252,9 @@ class Trainer():
 
         # these are arbitrary
         self.log.info('training for in domain')
-        global_idx = train_for_epochs(train_dataloader, 1, global_idx)
+        global_idx = train_for_epochs(train_dataloader, 1, global_idx, best_scores)
         self.log.info('training for out of domain')
-        global_idx = train_for_epochs(ood_train_dataloader, 3, global_idx)
+        global_idx = train_for_epochs(ood_train_dataloader, 3, global_idx, best_scores)
 
         return best_scores
 
