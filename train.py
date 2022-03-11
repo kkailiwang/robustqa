@@ -255,7 +255,7 @@ class Trainer():
         self.log.info('training for in domain')
         global_idx = train_for_epochs(train_dataloader, 1, global_idx, best_scores)
         self.log.info('training for out of domain')
-        global_idx = train_for_epochs(ood_train_dataloader, 3, global_idx, best_scores)
+        global_idx = train_for_epochs(ood_train_dataloader, 30, global_idx, best_scores)
 
         return best_scores
 
