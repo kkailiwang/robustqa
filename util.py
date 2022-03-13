@@ -348,9 +348,10 @@ def get_new_answer(answer, replace_map, diffs_of_word_starts, new_context):
         return {'answer_start': answer_start, 'text': text}
     # print('in answer: ', text, replace_map[text], answer_start)
     # must replace!
+    print('old answer: ', text)
     text = replace_map[text]
     answer_start += diffs_of_word_starts[answer_start]
-    # print(new_context[answer_start:answer_start+20])
+    print('new answer: ', text)
 
     return {'answer_start': answer_start, 'text': text}
 
@@ -371,7 +372,7 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
             if augment == "augmented" or augment == "both":
                 # augment the text!
                 replace_map = find_replacements(context, pos_replace)
-
+                print('old context: ', context)
                 diffs_of_word_starts = dict()
                 global_diff = 0
                 running_index = 0
@@ -392,20 +393,25 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                         new_context += splitted
                     running_index += len(splitted)
     
+                print('new context: ', new_context)
                 new_qas = []
                 for qa in passage['qas']:
                     # update the questions
                     question = qa['question']
                     answers = qa['answers']
                     new_question = ''
+                    changed = False
                     splitted_question = re.split('(\W)', question)
                     for splitted in splitted_question:
                         splitted = splitted.lower()
                         if splitted in replace_map:
                             new_question += replace_map[splitted]
+                            changed = True
                         else:
                             new_question += splitted
-
+                    if changed: 
+                        print('old question: ', question)
+                        print('new question: ', new_question)
                     # change answers
                     new_answers = []
                     for answer in answers:
@@ -413,7 +419,6 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                         new_answer = get_new_answer(answer, replace_map, diffs_of_word_starts, new_context)
                         new_answers.append(new_answer)
                     new_qas.append({'question': new_question, 'answers': new_answers, 'id': qa['id']})
-
                 add_to_dict(new_context, new_qas, data_dict)
 
             # if augment:
