@@ -317,13 +317,12 @@ def find_replacements(context, pos):  # part of speeches, as an array
     doc = nlp(context)
     new_context = context
     replace_map = dict()
-    count_per_pos = dict()
-    og_per_pos = dict()
+    count_per_pos = {k: 0 for k in pos}
+    og_per_pos = {k: 0 for k in pos}
     for i in range(len(doc)):
         # print(doc[i].pos_)
-        if doc[i].pos_ not in og_per_pos:
-            og_per_pos[doc[i].pos_] = 0
-        og_per_pos[doc[i].pos_] += 1
+        if doc[i].pos_ in og_per_pos:
+            og_per_pos[doc[i].pos_] += 1
         if matches_pos(pos, doc[i].pos_):
             if doc[i].pos_ not in count_per_pos:
                 count_per_pos[doc[i].pos_] = 0
@@ -336,9 +335,8 @@ def find_replacements(context, pos):  # part of speeches, as an array
                 replace_map[word] = best.lower()  # make sure it's lowercase
 
     # replace all]
-    print("original pos: ", og_per_pos)
-    print("replacements: ", count_per_pos)
-    return replace_map
+
+    return replace_map, og_per_pos, count_per_pos
 
 # idea: go through spacy doc and find all things you want to replace. add to a dict.
 # then go through context.split() and if a word should be replaced, calculate the difference between the two replacements.
@@ -372,6 +370,9 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
     with open(path, 'rb') as f:
         squad_dict = json.load(f)
     data_dict = {'question': [], 'context': [], 'id': [], 'answer': []}
+    total_og_pos = {k: 0 for k in pos_replace}
+    total_replaced_pos = {k: 0 for k in pos_replace}
+
     for group in squad_dict['data']:
         for passage in group['paragraphs']:
             context = passage['context']
@@ -381,7 +382,12 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                 add_to_dict(context, passage['qas'], data_dict)
             if augment == "augmented" or augment == "both":
                 # augment the text!
-                replace_map = find_replacements(context, set(pos_replace))
+                replace_map, og_per_pos, count_per_pos = find_replacements(context, set(pos_replace))
+                for pos, num in og_per_pos.items():
+                    total_og_pos[pos] += num 
+                for pos, num in count_per_pos.items():
+                    total_replaced_pos[pos] += num
+                
                 # print('old context: ', context)
                 diffs_of_word_starts = dict()
                 global_diff = 0
@@ -441,6 +447,9 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
             #     #     print(preview_new)
 
             #     add_to_dict(syn_context, passage['qas'], data_dict)
+
+    print('original: ', total_og_pos)
+    print('replaced: ', total_replaced_pos)
 
     id_map = ddict(list)
     for idx, qid in enumerate(data_dict['id']):
