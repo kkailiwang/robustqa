@@ -317,9 +317,17 @@ def find_replacements(context, pos):  # part of speeches, as an array
     doc = nlp(context)
     new_context = context
     replace_map = dict()
+    count_per_pos = dict()
+    og_per_pos = dict()
     for i in range(len(doc)):
         # print(doc[i].pos_)
+        if doc[i].pos_ not in og_per_pos:
+            og_per_pos[doc[i].pos_] = 0
+        og_per_pos[doc[i].pos_] += 1
         if matches_pos(pos, doc[i].pos_):
+            if doc[i].pos_ not in count_per_pos:
+                count_per_pos[doc[i].pos_] = 0
+            count_per_pos[doc[i].pos_] += 1
             word = doc[i].text
             synonyms = find_synonyms(word)
             # print(word, synonyms)
@@ -327,7 +335,9 @@ def find_replacements(context, pos):  # part of speeches, as an array
             if best:
                 replace_map[word] = best.lower()  # make sure it's lowercase
 
-    # replace all
+    # replace all]
+    print("original pos: ", og_per_pos)
+    print("replacements: ", count_per_pos)
     return replace_map
 
 # idea: go through spacy doc and find all things you want to replace. add to a dict.
@@ -348,10 +358,10 @@ def get_new_answer(answer, replace_map, diffs_of_word_starts, new_context):
         return {'answer_start': answer_start, 'text': text}
     # print('in answer: ', text, replace_map[text], answer_start)
     # must replace!
-    print('old answer: ', text)
+    # print('old answer: ', text)
     text = replace_map[text]
     answer_start += diffs_of_word_starts[answer_start]
-    print('new answer: ', text)
+    # print('new answer: ', text)
 
     return {'answer_start': answer_start, 'text': text}
 
@@ -371,8 +381,8 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                 add_to_dict(context, passage['qas'], data_dict)
             if augment == "augmented" or augment == "both":
                 # augment the text!
-                replace_map = find_replacements(context, pos_replace)
-                print('old context: ', context)
+                replace_map = find_replacements(context, set(pos_replace))
+                # print('old context: ', context)
                 diffs_of_word_starts = dict()
                 global_diff = 0
                 running_index = 0
@@ -393,7 +403,7 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                         new_context += splitted
                     running_index += len(splitted)
     
-                print('new context: ', new_context)
+                # print('new context: ', new_context)
                 new_qas = []
                 for qa in passage['qas']:
                     # update the questions
@@ -409,9 +419,9 @@ def read_squad(path, augment="original", pos_replace=['VERB', 'ADJ', 'NOUN']):
                             changed = True
                         else:
                             new_question += splitted
-                    if changed: 
-                        print('old question: ', question)
-                        print('new question: ', new_question)
+                    # if changed: 
+                    #     print('old question: ', question)
+                    #     print('new question: ', new_question)
                     # change answers
                     new_answers = []
                     for answer in answers:
